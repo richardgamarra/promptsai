@@ -5,6 +5,7 @@ import {
   ElicitResultSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  LATEST_PROTOCOL_VERSION,
   type PrimitiveSchemaDefinition,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -18,6 +19,12 @@ import {
   mcpWriteToolLimiter,
   mcpAiToolLimiter,
 } from "@/lib/rate-limit";
+import {
+  apiKeyCache,
+  promptListCache,
+  promptGetCache,
+  searchCache,
+} from "@/lib/mcp-cache";
 
 interface AuthenticatedUser {
   id: string;
@@ -30,6 +37,9 @@ async function authenticateApiKey(apiKey: string | null): Promise<AuthenticatedU
     return null;
   }
 
+  const cached = apiKeyCache.get(apiKey);
+  if (cached !== undefined) return cached;
+
   const user = await db.user.findUnique({
     where: { apiKey },
     select: {
@@ -39,6 +49,7 @@ async function authenticateApiKey(apiKey: string | null): Promise<AuthenticatedU
     },
   });
 
+  apiKeyCache.set(apiKey, user);
   return user;
 }
 
@@ -166,16 +177,28 @@ function createServer(options: ServerOptions = {}) {
 
   const promptFilter = buildPromptFilter();
 
+  // Stable key for caching queries scoped to this filter config
+  const filterFingerprint = [
+    authenticatedUser?.id || "anon",
+    options.categories?.sort().join(",") || "",
+    options.tags?.sort().join(",") || "",
+    options.users?.sort().join(",") || "",
+  ].join("|");
+
   // Dynamic MCP Prompts - expose database prompts as MCP prompts
   server.server.setRequestHandler(ListPromptsRequestSchema, async (request) => {
     const cursor = request.params?.cursor;
     const page = cursor ? parseInt(cursor, 10) : 1;
     const perPage = 20;
 
+    const cacheKey = `list:${filterFingerprint}:${page}`;
+    const cached = promptListCache.get(cacheKey);
+    if (cached) return cached;
+
     const prompts = await db.prompt.findMany({
       where: promptFilter,
       skip: (page - 1) * perPage,
-      take: perPage + 1, // fetch one extra to check if there's more
+      take: perPage + 1,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -189,7 +212,7 @@ function createServer(options: ServerOptions = {}) {
     const hasMore = prompts.length > perPage;
     const results = hasMore ? prompts.slice(0, perPage) : prompts;
 
-    return {
+    const response = {
       prompts: results.map((p) => {
         const variables = extractVariables(p.content);
         return {
@@ -205,42 +228,50 @@ function createServer(options: ServerOptions = {}) {
       }),
       nextCursor: hasMore ? String(page + 1) : undefined,
     };
+
+    promptListCache.set(cacheKey, response);
+    return response;
   });
 
   server.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const promptSlug = request.params.name;
     const args = request.params.arguments || {};
 
-    const promptSelect = { id: true, slug: true, title: true, description: true, content: true };
+    // Cache the DB lookup (not the final response since args vary)
+    const dbCacheKey = `getprompt:${filterFingerprint}:${promptSlug}`;
+    let prompt = promptGetCache.get(dbCacheKey) as { id: string; slug: string | null; title: string; description: string | null; content: string } | null | undefined;
 
-    // Try direct lookup by slug first
-    let prompt = await db.prompt.findFirst({
-      where: { ...promptFilter, slug: promptSlug },
-      select: promptSelect,
-    });
-    // Fallback: lookup by id
-    if (!prompt) {
+    if (prompt === undefined) {
+      const promptSelect = { id: true, slug: true, title: true, description: true, content: true };
+
       prompt = await db.prompt.findFirst({
-        where: { ...promptFilter, id: promptSlug },
+        where: { ...promptFilter, slug: promptSlug },
         select: promptSelect,
       });
-    }
-    // Fallback: lookup by slugified title (for prompts without stored slug)
-    // TODO: Backfill slug column for all existing prompts so this fallback can be removed
-    if (!prompt) {
-      const unslugged = await db.prompt.findMany({
-        where: { ...promptFilter, slug: null },
-        select: promptSelect,
-        take: 500,
-      });
-      prompt = unslugged.find((p) => slugify(p.title) === promptSlug) || null;
+      if (!prompt) {
+        prompt = await db.prompt.findFirst({
+          where: { ...promptFilter, id: promptSlug },
+          select: promptSelect,
+        });
+      }
+      // Fallback: lookup by slugified title (for prompts without stored slug)
+      // TODO: Backfill slug column for all existing prompts so this fallback can be removed
+      if (!prompt) {
+        const unslugged = await db.prompt.findMany({
+          where: { ...promptFilter, slug: null },
+          select: promptSelect,
+          take: 500,
+        });
+        prompt = unslugged.find((p) => slugify(p.title) === promptSlug) || null;
+      }
+
+      promptGetCache.set(dbCacheKey, prompt);
     }
 
     if (!prompt) {
       throw new Error(`Prompt not found: ${promptSlug}`);
     }
 
-    // Replace variables in content
     let filledContent = prompt.content;
     const variables = extractVariables(prompt.content);
     
@@ -290,11 +321,14 @@ function createServer(options: ServerOptions = {}) {
     },
     async ({ query, limit = 10, type, category, tag }) => {
       try {
+        const cacheKey = `search:${filterFingerprint}:${query}:${limit}:${type || ""}:${category || ""}:${tag || ""}`;
+        const cached = searchCache.get(cacheKey);
+        if (cached) return cached as { content: { type: "text"; text: string }[] };
+
         const where: Record<string, unknown> = {
           isUnlisted: false,
           deletedAt: null,
           AND: [
-            // Search filter
             {
               OR: [
                 { title: { contains: query, mode: "insensitive" } },
@@ -302,7 +336,6 @@ function createServer(options: ServerOptions = {}) {
                 { content: { contains: query, mode: "insensitive" } },
               ],
             },
-            // Visibility filter: public OR user's own private prompts
             authenticatedUser
               ? {
                   OR: [
@@ -351,7 +384,7 @@ function createServer(options: ServerOptions = {}) {
           createdAt: p.createdAt.toISOString(),
         }));
 
-        return {
+        const response = {
           content: [
             {
               type: "text" as const,
@@ -359,6 +392,9 @@ function createServer(options: ServerOptions = {}) {
             },
           ],
         };
+
+        searchCache.set(cacheKey, response);
+        return response;
       } catch (error) {
         console.error("MCP search_prompts error:", error);
         return {
@@ -384,26 +420,39 @@ function createServer(options: ServerOptions = {}) {
     },
     async ({ id, fill_variables }, extra) => {
       try {
-        const prompt = await db.prompt.findFirst({
-          where: {
-            id,
-            isPrivate: false,
-            isUnlisted: false,
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            description: true,
-            content: true,
-            type: true,
-            structuredFormat: true,
-            author: { select: { username: true, name: true } },
-            category: { select: { name: true, slug: true } },
-            tags: { select: { tag: { select: { name: true, slug: true } } } },
-          },
-        });
+        const toolCacheKey = `tool:get:${filterFingerprint}:${id}`;
+        type PromptResult = {
+          id: string; slug: string | null; title: string; description: string | null;
+          content: string; type: string; structuredFormat: string | null;
+          author: { username: string; name: string | null };
+          category: { name: string; slug: string } | null;
+          tags: { tag: { name: string; slug: string } }[];
+        };
+        let prompt = promptGetCache.get(toolCacheKey) as PromptResult | null | undefined;
+
+        if (prompt === undefined) {
+          prompt = await db.prompt.findFirst({
+            where: {
+              id,
+              isPrivate: false,
+              isUnlisted: false,
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              description: true,
+              content: true,
+              type: true,
+              structuredFormat: true,
+              author: { select: { username: true, name: true } },
+              category: { select: { name: true, slug: true } },
+              tags: { select: { tag: { select: { name: true, slug: true } } } },
+            },
+          });
+          promptGetCache.set(toolCacheKey, prompt);
+        }
 
         if (!prompt) {
           return {
@@ -1164,7 +1213,10 @@ function createServer(options: ServerOptions = {}) {
     },
     async ({ id }) => {
       try {
-        // Build visibility filter
+        const skillCacheKey = `skill:get:${filterFingerprint}:${id}`;
+        const cached = promptGetCache.get(skillCacheKey);
+        if (cached) return cached as { content: { type: "text"; text: string }[] };
+
         const visibilityFilter = authenticatedUser
           ? {
               OR: [
@@ -1205,10 +1257,9 @@ function createServer(options: ServerOptions = {}) {
           };
         }
 
-        // Parse files from content
         const files = parseSkillFiles(skill.content);
 
-        return {
+        const response = {
           content: [
             {
               type: "text" as const,
@@ -1233,6 +1284,9 @@ function createServer(options: ServerOptions = {}) {
             },
           ],
         };
+
+        promptGetCache.set(skillCacheKey, response);
+        return response;
       } catch (error) {
         console.error("MCP get_skill error:", error);
         return {
@@ -1264,12 +1318,15 @@ function createServer(options: ServerOptions = {}) {
     },
     async ({ query, limit = 10, category, tag }) => {
       try {
+        const cacheKey = `skillsearch:${filterFingerprint}:${query}:${limit}:${category || ""}:${tag || ""}`;
+        const cached = searchCache.get(cacheKey);
+        if (cached) return cached as { content: { type: "text"; text: string }[] };
+
         const where: Record<string, unknown> = {
           type: "SKILL",
           isUnlisted: false,
           deletedAt: null,
           AND: [
-            // Search filter
             {
               OR: [
                 { title: { contains: query, mode: "insensitive" } },
@@ -1277,7 +1334,6 @@ function createServer(options: ServerOptions = {}) {
                 { content: { contains: query, mode: "insensitive" } },
               ],
             },
-            // Visibility filter: public OR user's own private skills
             authenticatedUser
               ? {
                   OR: [
@@ -1328,7 +1384,7 @@ function createServer(options: ServerOptions = {}) {
           };
         });
 
-        return {
+        const response = {
           content: [
             {
               type: "text" as const,
@@ -1336,6 +1392,9 @@ function createServer(options: ServerOptions = {}) {
             },
           ],
         };
+
+        searchCache.set(cacheKey, response);
+        return response;
       } catch (error) {
         console.error("MCP search_skills error:", error);
         return {
@@ -1381,70 +1440,71 @@ async function parseBody(req: NextApiRequest): Promise<unknown> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Static discovery JSON (GET /api/mcp) — cached at module level so it is
+// serialised once per cold-start rather than on every request.
+// ---------------------------------------------------------------------------
+const DISCOVERY_JSON = {
+  name: "prompts-chat",
+  version: "1.0.0",
+  description: "MCP server for prompts.chat - Search and discover AI prompts",
+  protocol: "Model Context Protocol (MCP)",
+  capabilities: {
+    tools: true,
+    prompts: true,
+  },
+  tools: [
+    { name: "search_prompts", description: "Search for AI prompts by keyword." },
+    { name: "get_prompt", description: "Get a prompt by ID with variable elicitation support." },
+    { name: "save_prompt", description: "Save a new prompt (requires API key authentication)." },
+    { name: "improve_prompt", description: "Transform a basic prompt into a well-structured, comprehensive prompt using AI." },
+    { name: "save_skill", description: "Save a new Agent Skill with multiple files (requires API key authentication)." },
+    { name: "add_file_to_skill", description: "Add a file to an existing Agent Skill (requires API key authentication)." },
+    { name: "update_skill_file", description: "Update an existing file in an Agent Skill (requires API key authentication)." },
+    { name: "remove_file_from_skill", description: "Remove a file from an Agent Skill (requires API key authentication)." },
+    { name: "get_skill", description: "Get an Agent Skill by ID with all its files." },
+    { name: "search_skills", description: "Search for Agent Skills by keyword." },
+  ],
+  prompts: {
+    description: "All public prompts are available as MCP prompts. Use prompts/list to browse and prompts/get to retrieve with variable substitution.",
+    usage: "Access via slash commands in MCP clients (e.g., /prompt-id)",
+  },
+  endpoint: "/api/mcp",
+} as const;
+const DISCOVERY_STRING = JSON.stringify(DISCOVERY_JSON);
+
+// ---------------------------------------------------------------------------
+// Pre-built `initialize` response — the MCP handshake is purely static.
+// Serving it directly avoids creating McpServer + transport + DB auth
+// for every new session (typically ~2 requests saved per session).
+// ---------------------------------------------------------------------------
+const INITIALIZE_RESULT = {
+  protocolVersion: LATEST_PROTOCOL_VERSION,
+  capabilities: {
+    prompts: { listChanged: false },
+    tools: { listChanged: false },
+  },
+  serverInfo: {
+    name: "prompts-chat",
+    version: "1.0.0",
+  },
+};
+
+const WRITE_TOOLS = new Set(["save_prompt", "save_skill", "add_file_to_skill", "update_skill_file", "remove_file_from_skill"]);
+const AI_TOOLS = new Set(["improve_prompt"]);
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!appConfig.features.mcp) {
     return res.status(404).json({ error: "MCP is not enabled" });
   }
 
+  // --- GET: discovery endpoint (fully cacheable on CDN) ---
   if (req.method === "GET") {
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
-    return res.status(200).json({
-      name: "prompts-chat",
-      version: "1.0.0",
-      description: "MCP server for prompts.chat - Search and discover AI prompts",
-      protocol: "Model Context Protocol (MCP)",
-      capabilities: {
-        tools: true,
-        prompts: true,
-      },
-      tools: [
-        {
-          name: "search_prompts",
-          description: "Search for AI prompts by keyword.",
-        },
-        {
-          name: "get_prompt",
-          description: "Get a prompt by ID with variable elicitation support.",
-        },
-        {
-          name: "save_prompt",
-          description: "Save a new prompt (requires API key authentication).",
-        },
-        {
-          name: "improve_prompt",
-          description: "Transform a basic prompt into a well-structured, comprehensive prompt using AI.",
-        },
-        {
-          name: "save_skill",
-          description: "Save a new Agent Skill with multiple files (requires API key authentication).",
-        },
-        {
-          name: "add_file_to_skill",
-          description: "Add a file to an existing Agent Skill (requires API key authentication).",
-        },
-        {
-          name: "update_skill_file",
-          description: "Update an existing file in an Agent Skill (requires API key authentication).",
-        },
-        {
-          name: "remove_file_from_skill",
-          description: "Remove a file from an Agent Skill (requires API key authentication).",
-        },
-        {
-          name: "get_skill",
-          description: "Get an Agent Skill by ID with all its files.",
-        },
-        {
-          name: "search_skills",
-          description: "Search for Agent Skills by keyword.",
-        },
-      ],
-      prompts: {
-        description: "All public prompts are available as MCP prompts. Use prompts/list to browse and prompts/get to retrieve with variable substitution.",
-        usage: "Access via slash commands in MCP clients (e.g., /prompt-id)",
-      },
-      endpoint: "/api/mcp",
-    });
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+    res.setHeader("CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("Vercel-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("Content-Type", "application/json");
+    return res.status(200).end(DISCOVERY_STRING);
   }
 
   if (req.method === "DELETE") {
@@ -1459,18 +1519,92 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // Parse query parameters for filtering
+  // Parse body early so we can inspect the method before doing expensive work
+  let body: unknown;
+  try {
+    body = await parseBody(req);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return res.status(413).json({
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "Payload too large. Maximum body size is 1MB." },
+        id: null,
+      });
+    }
+    throw error;
+  }
+
+  const rpcBody = body as { jsonrpc?: string; method?: string; id?: unknown; params?: Record<string, unknown> };
+
+  // --- Short-circuit: initialize ---
+  // The handshake is 100% static — skip server creation, DB auth, transport.
+  if (rpcBody?.method === "initialize") {
+    return res.status(200).json({
+      jsonrpc: "2.0",
+      result: INITIALIZE_RESULT,
+      id: rpcBody.id ?? null,
+    });
+  }
+
+  // --- Short-circuit: notifications/initialized ---
+  // This is a notification (no id) — acknowledge with 204, no body.
+  if (rpcBody?.method === "notifications/initialized") {
+    return res.status(204).end();
+  }
+
+  // --- Rate limiting (applied before any DB work) ---
   const url = new URL(req.url || "", `http://${req.headers.host}`);
+  const apiKeyHeader = req.headers["prompts_api_key"] || req.headers["prompts-api-key"];
+  const apiKeyParam = url.searchParams.get("api_key");
+  const apiKey = (Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader) || apiKeyParam;
+  const rateLimitId = apiKey || req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+
+  const generalCheck = mcpGeneralLimiter.check(rateLimitId);
+  if (!generalCheck.allowed) {
+    return res.status(429).json({
+      jsonrpc: "2.0",
+      error: { code: -32000, message: `Rate limit exceeded. Try again in ${generalCheck.retryAfterSeconds}s.` },
+      id: rpcBody?.id ?? null,
+    });
+  }
+
+  if (rpcBody?.method === "tools/call") {
+    const toolCallCheck = mcpToolCallLimiter.check(rateLimitId);
+    if (!toolCallCheck.allowed) {
+      return res.status(429).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: `Tool call rate limit exceeded. Try again in ${toolCallCheck.retryAfterSeconds}s.` },
+        id: rpcBody.id ?? null,
+      });
+    }
+
+    const toolName = rpcBody.params?.name as string | undefined;
+    if (toolName && AI_TOOLS.has(toolName)) {
+      const aiCheck = mcpAiToolLimiter.check(rateLimitId);
+      if (!aiCheck.allowed) {
+        return res.status(429).json({
+          jsonrpc: "2.0",
+          error: { code: -32000, message: `AI tool rate limit exceeded (${toolName}). Try again in ${aiCheck.retryAfterSeconds}s.` },
+          id: rpcBody.id ?? null,
+        });
+      }
+    } else if (toolName && WRITE_TOOLS.has(toolName)) {
+      const writeCheck = mcpWriteToolLimiter.check(rateLimitId);
+      if (!writeCheck.allowed) {
+        return res.status(429).json({
+          jsonrpc: "2.0",
+          error: { code: -32000, message: `Write tool rate limit exceeded (${toolName}). Try again in ${writeCheck.retryAfterSeconds}s.` },
+          id: rpcBody.id ?? null,
+        });
+      }
+    }
+  }
+
+  // --- Full server path (only reached for actual tool/prompt calls) ---
   const categoriesParam = url.searchParams.get("categories");
   const tagsParam = url.searchParams.get("tags");
   const usersParam = url.searchParams.get("users");
 
-  // Extract API key from PROMPTS_API_KEY header or query parameter
-  const apiKeyHeader = req.headers["prompts_api_key"] || req.headers["prompts-api-key"];
-  const apiKeyParam = url.searchParams.get("api_key");
-  const apiKey = (Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader) || apiKeyParam;
-
-  // Authenticate user if API key is provided
   const authenticatedUser = await authenticateApiKey(apiKey);
 
   const serverOptions: ServerOptions = { authenticatedUser };
@@ -1492,58 +1626,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     await server.connect(transport);
-
-    const body = await parseBody(req);
-
-    // --- Rate limiting ---
-    const rateLimitId = apiKey || req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
-
-    const generalCheck = mcpGeneralLimiter.check(rateLimitId);
-    if (!generalCheck.allowed) {
-      return res.status(429).json({
-        jsonrpc: "2.0",
-        error: { code: -32000, message: `Rate limit exceeded. Try again in ${generalCheck.retryAfterSeconds}s.` },
-        id: null,
-      });
-    }
-
-    // Apply stricter limits for tool calls based on tool name
-    const WRITE_TOOLS = new Set(["save_prompt", "save_skill", "add_file_to_skill", "update_skill_file", "remove_file_from_skill"]);
-    const AI_TOOLS = new Set(["improve_prompt"]);
-
-    const rpcBody = body as { method?: string; params?: { name?: string } };
-    if (rpcBody?.method === "tools/call") {
-      const toolCallCheck = mcpToolCallLimiter.check(rateLimitId);
-      if (!toolCallCheck.allowed) {
-        return res.status(429).json({
-          jsonrpc: "2.0",
-          error: { code: -32000, message: `Tool call rate limit exceeded. Try again in ${toolCallCheck.retryAfterSeconds}s.` },
-          id: null,
-        });
-      }
-
-      const toolName = rpcBody.params?.name;
-      if (toolName && AI_TOOLS.has(toolName)) {
-        const aiCheck = mcpAiToolLimiter.check(rateLimitId);
-        if (!aiCheck.allowed) {
-          return res.status(429).json({
-            jsonrpc: "2.0",
-            error: { code: -32000, message: `AI tool rate limit exceeded (${toolName}). Try again in ${aiCheck.retryAfterSeconds}s.` },
-            id: null,
-          });
-        }
-      } else if (toolName && WRITE_TOOLS.has(toolName)) {
-        const writeCheck = mcpWriteToolLimiter.check(rateLimitId);
-        if (!writeCheck.allowed) {
-          return res.status(429).json({
-            jsonrpc: "2.0",
-            error: { code: -32000, message: `Write tool rate limit exceeded (${toolName}). Try again in ${writeCheck.retryAfterSeconds}s.` },
-            id: null,
-          });
-        }
-      }
-    }
-
     await transport.handleRequest(req, res, body);
 
     res.on("close", () => {
@@ -1553,19 +1635,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     console.error("MCP error:", error);
     if (!res.headersSent) {
-      if (error instanceof PayloadTooLargeError) {
-        res.status(413).json({
-          jsonrpc: "2.0",
-          error: { code: -32600, message: "Payload too large. Maximum body size is 1MB." },
-          id: null,
-        });
-      } else {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal server error" },
-          id: null,
-        });
-      }
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal server error" },
+        id: rpcBody?.id ?? null,
+      });
     }
   }
 }

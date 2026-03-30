@@ -37,6 +37,28 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Cache headers for static-ish API routes
+  async headers() {
+    return [
+      {
+        source: "/api/mcp",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=3600, stale-while-revalidate=86400",
+          },
+          {
+            key: "CDN-Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+          {
+            key: "Vercel-CDN-Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
   // Redirects
   async redirects() {
     return [
