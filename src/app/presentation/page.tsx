@@ -53,10 +53,24 @@ type CardProps = {
   accent?: string;
 };
 
+function PixelEdge() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 top-0 h-1.5"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(90deg, #F25022 0 7px, #FFB900 7px 14px, #7FBA00 14px 21px, #00A4EF 21px 28px)",
+      }}
+      aria-hidden
+    />
+  );
+}
+
 function Card({ icon: Icon, title, children, accent = "text-primary" }: CardProps) {
   return (
-    <div className="rounded-3xl border border-border/70 bg-background/70 p-6 shadow-sm backdrop-blur transition-transform duration-300 hover:-translate-y-1">
-      <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 ${accent}`}>
+    <div className="relative border border-white/12 bg-white/[0.03] p-6 pt-7 shadow-sm backdrop-blur transition-transform duration-300 hover:-translate-y-1">
+      <PixelEdge />
+      <div className={`mb-4 flex h-12 w-12 items-center justify-center bg-primary/10 ${accent}`}>
         <Icon className="h-6 w-6" />
       </div>
       <h3 className="mb-2 text-2xl font-bold text-foreground">{title}</h3>
@@ -67,7 +81,7 @@ function Card({ icon: Icon, title, children, accent = "text-primary" }: CardProp
 
 function Pill({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-base font-semibold text-primary">
+    <span className="inline-flex items-center rounded-none border border-primary/40 bg-primary/10 px-4 py-2 font-mono text-sm font-semibold uppercase tracking-[0.18em] text-primary">
       {children}
     </span>
   );
@@ -75,12 +89,12 @@ function Pill({ children }: { children: ReactNode }) {
 
 function CodePanel({ children, title = "prompt.md" }: { children: ReactNode; title?: string }) {
   return (
-    <div className="overflow-hidden rounded-3xl border border-border bg-zinc-950 text-zinc-100 shadow-2xl">
+    <div className="overflow-hidden rounded-none border border-border bg-zinc-950 text-zinc-100 shadow-2xl">
       <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-5 py-3">
         <div className="flex gap-2">
-          <span className="h-3 w-3 rounded-full bg-red-400" />
-          <span className="h-3 w-3 rounded-full bg-yellow-400" />
-          <span className="h-3 w-3 rounded-full bg-green-400" />
+          <span className="h-3 w-3 rounded-none bg-red-400" />
+          <span className="h-3 w-3 rounded-none bg-yellow-400" />
+          <span className="h-3 w-3 rounded-none bg-green-400" />
         </div>
         <span className="font-mono text-xs text-zinc-400">{title}</span>
       </div>
@@ -91,8 +105,9 @@ function CodePanel({ children, title = "prompt.md" }: { children: ReactNode; tit
 
 function FlowStep({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return (
-    <div className="relative rounded-3xl border border-border/70 bg-background/75 p-5 shadow-sm">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+    <div className="relative border border-white/12 bg-white/[0.03] p-5 pt-6 shadow-sm">
+      <PixelEdge />
+      <div className="mb-4 flex h-12 w-12 items-center justify-center bg-primary/10 text-primary">
         <Icon className="h-6 w-6" />
       </div>
       <h3 className="text-2xl font-bold">{title}</h3>
@@ -105,22 +120,23 @@ export default function PresentationPage() {
   return (
     <SlideDeck notes={speakerNotes}>
       <div className="flex min-h-[70vh] flex-col items-center justify-center text-center">
-        <div className="mb-8 flex items-center justify-center">
-          <Image
-            src="/logo.svg"
-            alt="prompts.chat logo"
-            width={160}
-            height={160}
-            unoptimized
-            className="h-40 w-40 object-contain dark:hidden"
-          />
+        <Image
+          src="/presentation/build-logo.png"
+          alt="Microsoft Build"
+          width={720}
+          height={405}
+          priority
+          unoptimized
+          className="mb-10 h-auto w-[20rem] md:w-[24rem]"
+        />
+        <div className="mb-7 flex items-center justify-center">
           <Image
             src="/logo-dark.svg"
             alt="prompts.chat logo"
-            width={160}
-            height={160}
+            width={112}
+            height={112}
             unoptimized
-            className="hidden h-40 w-40 object-contain dark:block"
+            className="h-24 w-24 object-contain"
           />
         </div>
         <SlideTitle className="max-w-5xl">prompts.chat</SlideTitle>
@@ -131,18 +147,14 @@ export default function PresentationPage() {
           Smarter models don&apos;t make prompts obsolete — prompts are the{" "}
           <SlideHighlight>atoms of every agent</SlideHighlight>.
         </p>
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Pill>Microsoft Build</Pill>
-          <Pill>15-min lightning talk</Pill>
-        </div>
       </div>
 
       <div className="grid min-h-[70vh] items-center gap-8 lg:grid-cols-[1fr_0.95fr]">
         <div className="relative order-2 lg:order-1">
-          <div className="absolute -left-8 top-10 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+          <div className="absolute -left-8 top-10 h-72 w-72 rounded-none bg-primary/20 blur-3xl" />
           <div className="relative mx-auto w-full max-w-[34rem]">
-            <div className="absolute -inset-4 -rotate-3 rounded-[3rem] bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
-            <div className="relative overflow-hidden rounded-[3rem] border border-border bg-background shadow-2xl">
+            <div className="absolute -inset-4 -rotate-3 rounded-none bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
+            <div className="relative overflow-hidden rounded-none border border-border bg-background shadow-2xl">
               <Image
                 src="https://github.com/f.png"
                 alt="Fatih Kadir Akın profile photo"
@@ -170,18 +182,18 @@ export default function PresentationPage() {
             <SlideHighlight>prompts.chat</SlideHighlight>.
           </SlideContent>
           <div className="mt-10 flex flex-wrap items-center gap-5">
-            <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/75 px-5 py-4 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-3 rounded-none border border-border/70 bg-background/75 px-5 py-4 shadow-sm backdrop-blur">
               <Image
-                src="https://cdn.simpleicons.org/automattic/000000"
+                src="https://cdn.simpleicons.org/automattic/FFFFFF"
                 alt="Automattic"
                 width={40}
                 height={40}
                 unoptimized
-                className="h-10 w-10 dark:invert"
+                className="h-10 w-10"
               />
               <span className="text-xl font-bold text-foreground">Automattic</span>
             </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/75 px-5 py-4 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-3 rounded-none border border-border/70 bg-background/75 px-5 py-4 shadow-sm backdrop-blur">
               <Star className="h-9 w-9 text-yellow-500" />
               <span className="text-xl font-bold text-foreground">GitHub Star</span>
             </div>
@@ -315,8 +327,8 @@ Output: Markdown, grouped by feature / fix / chore.`}
           </div>
         </div>
         <div className="relative mx-auto w-full max-w-[34rem]">
-          <div className="absolute -inset-4 -rotate-2 rounded-[3rem] bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
-          <div className="relative overflow-hidden rounded-[2rem] border border-border bg-background shadow-2xl">
+          <div className="absolute -inset-4 -rotate-2 rounded-none bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
+          <div className="relative overflow-hidden rounded-none border border-border bg-background shadow-2xl">
             <Image
               src="/book-cover-photo.jpg"
               alt="The Interactive Book of Prompting cover"
@@ -352,8 +364,8 @@ Output: Markdown, grouped by feature / fix / chore.`}
           </div>
         </div>
         <div className="relative mx-auto w-full max-w-[19rem]">
-          <div className="absolute -inset-4 rotate-2 rounded-[3rem] bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
-          <div className="relative overflow-hidden rounded-[2rem] border border-border bg-background shadow-2xl">
+          <div className="absolute -inset-4 rotate-2 rounded-none bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
+          <div className="relative overflow-hidden rounded-none border border-border bg-background shadow-2xl">
             <Image
               src="/presentation/kids-screenshot.png"
               alt="Promi in Prompt Land — the kids game"
@@ -382,7 +394,7 @@ Output: Markdown, grouped by feature / fix / chore.`}
       </div>
 
       <div className="flex min-h-[70vh] flex-col items-center justify-center text-center">
-        <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-primary/10 text-primary">
+        <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-none bg-primary/10 text-primary">
           <Workflow className="h-12 w-12" />
         </div>
         <SlideTitle className="max-w-5xl">Prompts are the new interface</SlideTitle>
@@ -397,7 +409,7 @@ Output: Markdown, grouped by feature / fix / chore.`}
       </div>
 
       <div className="flex min-h-[70vh] flex-col items-center justify-center text-center">
-        <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-none bg-primary/10 text-primary">
           <Rocket className="h-12 w-12" />
         </div>
         <SlideTitle>Thank you</SlideTitle>
