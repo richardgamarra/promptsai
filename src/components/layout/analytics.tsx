@@ -15,6 +15,10 @@ export function Analytics({ gaId }: AnalyticsProps) {
     setHasConsent(getCookieConsent() === "accepted");
   }, []);
 
+  // El consentimiento se calculaba pero no se usaba: los scripts se cargaban
+  // igual aunque el visitante pulsara Reject en el banner de cookies.
+  if (!hasConsent) return null;
+
   return (
     <>
       <Script

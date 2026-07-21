@@ -4,11 +4,15 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+// Sin DSN propio, Sentry queda inerte. El repo original traia aqui un DSN fijo
+// que mandaba errores y trazas a la cuenta del autor de prompts.chat.
+const SENTRY_DSN = process.env.SENTRY_DSN;
+
 Sentry.init({
-  dsn: "https://9c2eb3b4441745efad28a908001c30bf@o4510673866063872.ingest.de.sentry.io/4510673871306832",
+  dsn: SENTRY_DSN,
 
   // Disable Sentry in development
-  enabled: process.env.NODE_ENV === "production",
+  enabled: Boolean(SENTRY_DSN) && process.env.NODE_ENV === "production",
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 0.1,
@@ -18,5 +22,5 @@ Sentry.init({
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii: false,
 });

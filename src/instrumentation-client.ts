@@ -4,6 +4,11 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+// Sin DSN propio, Sentry queda inerte. El repo original traia aqui un DSN fijo
+// que mandaba a la cuenta del autor de prompts.chat los errores, las trazas y
+// grabaciones de sesion del 10% de los visitantes, con datos personales.
+const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
 // Patterns to ignore - typically from browser extensions or third-party scripts
 const ignoreErrors = [
   // Browser extension errors
@@ -23,13 +28,14 @@ const ignoreErrors = [
 ];
 
 Sentry.init({
-  dsn: "https://9c2eb3b4441745efad28a908001c30bf@o4510673866063872.ingest.de.sentry.io/4510673871306832",
+  dsn: SENTRY_DSN,
 
   // Disable Sentry in development
-  enabled: process.env.NODE_ENV === "production",
+  enabled: Boolean(SENTRY_DSN) && process.env.NODE_ENV === "production",
 
   // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // La grabacion de sesiones solo se instrumenta si hay DSN propio configurado.
+  integrations: SENTRY_DSN ? [Sentry.replayIntegration()] : [],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 0.1,
@@ -46,7 +52,7 @@ Sentry.init({
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii: false,
 
   // Filter out browser extension and third-party script errors
   beforeSend(event) {
