@@ -220,7 +220,10 @@ export default async function RootLayout({
                 <Header authProvider={config.auth.provider} allowRegistration={config.auth.allowRegistration} />
                 <main className="flex-1">{children}</main>
                 <Footer />
-                <CookieConsentBanner />
+                {/* El banner solo aparece si hay analitica que consentir. Hoy no
+                    la hay, asi que pedir permiso seria pedirlo para nada. Si
+                    algun dia se configura GOOGLE_ANALYTICS_ID, vuelve solo. */}
+                {process.env.GOOGLE_ANALYTICS_ID && <CookieConsentBanner />}
               </div>
             </>
           )}
