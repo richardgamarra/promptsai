@@ -109,7 +109,10 @@ export function CodeView({ content, language = "json", className, maxLines, font
           onCollapseAllRef={collapseAllRef}
         />
       ) : (
-        <pre suppressHydrationWarning className={cn("font-mono bg-muted rounded p-2", preview ? "overflow-hidden" : "overflow-y-auto max-h-[500px]", {
+        // overflow-auto y no overflow-y-auto: sin control del eje horizontal, una
+        // linea larga de codigo empuja el ancho de TODA la pagina y provoca scroll
+        // lateral en movil. Debe desplazarse dentro del bloque.
+        <pre suppressHydrationWarning className={cn("font-mono bg-muted rounded p-2", preview ? "overflow-hidden" : "overflow-auto max-h-[500px]", {
             "text-xs": fontSize === "xs",
             "text-sm": fontSize === "sm",
             "text-base": fontSize === "base",

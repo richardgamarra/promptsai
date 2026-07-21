@@ -11,6 +11,7 @@ import { CliCommand } from "@/components/layout/cli-command";
 import { ExtensionLink } from "@/components/layout/extension-link";
 import { AnimatedText } from "@/components/layout/animated-text";
 import { SponsorLink, BecomeSponsorLink, BuiltWithLink } from "@/components/layout/sponsor-link";
+import { SpecimenHero } from "@/components/landing/specimen-hero";
 
 function getOrdinalSuffix(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -50,7 +51,31 @@ export default async function HomePage() {
   // Show landing page for all users
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
+      {/* Heroe de PromptsAI. Sustituye a la rama minima que traia el proyecto
+          original cuando useCloneBranding esta activo. */}
+      {useCloneBranding && (
+        <SpecimenHero description={config.branding.description}>
+          <div className="flex flex-wrap gap-3">
+            <Button size="lg" asChild>
+              <Link href={session ? "/feed" : "/prompts"}>
+                {session ? tHomepage("viewFeed") : tHomepage("browsePrompts")}
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Link>
+            </Button>
+            {showRegisterButton && (
+              <Button variant="outline" size="lg" asChild>
+                <Link href={isOAuth ? "/login" : "/register"}>
+                  <LogIn className="mr-1.5 h-4 w-4" />
+                  {isOAuth ? tNav("login") : tNav("register")}
+                </Link>
+              </Button>
+            )}
+          </div>
+        </SpecimenHero>
+      )}
+
+      {/* Hero Section (marca original, solo si useCloneBranding esta apagado) */}
+      {!useCloneBranding && (
       <section className="relative py-12 md:py-16 border-b overflow-hidden">
         {/* Background - Right Side */}
         {useCloneBranding ? (
@@ -253,6 +278,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Sponsors Section */}
       {config.homepage?.sponsors?.enabled && config.homepage.sponsors.items.length > 0 && (

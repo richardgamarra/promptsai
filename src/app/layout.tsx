@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Sans_Arabic, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Inter, Noto_Sans_Arabic, Geist_Mono, Playfair_Display, Bricolage_Grotesque, Archivo } from "next/font/google";
 import { headers } from "next/headers";
 import { getMessages, getLocale } from "next-intl/server";
 import { Providers } from "@/components/providers";
@@ -36,6 +36,22 @@ const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
+});
+
+// Display de PromptsAI: una grotesca con caracter, para que los titulares no
+// se lean como los de cualquier SaaS.
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-bricolage",
+  weight: ["600", "700", "800"],
+  display: "swap",
+});
+
+// Cuerpo de texto.
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-archivo",
+  display: "swap",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -175,9 +191,11 @@ export default async function RootLayout({
     "--primary-foreground": foreground,
   } as React.CSSProperties;
 
-  const fontClasses = isRtl 
-    ? `${inter.variable} ${notoSansArabic.variable} ${geistMono.variable} ${playfairDisplay.variable} font-arabic` 
-    : `${inter.variable} ${geistMono.variable} ${playfairDisplay.variable} font-sans`;
+  const latinFonts = `${inter.variable} ${geistMono.variable} ${playfairDisplay.variable} ${bricolage.variable} ${archivo.variable}`;
+
+  const fontClasses = isRtl
+    ? `${latinFonts} ${notoSansArabic.variable} font-arabic`
+    : `${latinFonts} font-sans`;
 
   return (
     <html lang={locale} dir={isRtl ? "rtl" : "ltr"} suppressHydrationWarning className={themeClasses} style={themeStyles}>

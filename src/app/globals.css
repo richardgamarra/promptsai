@@ -7,10 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
   --font-arabic: var(--font-arabic);
-  --font-display: var(--font-playfair);
+  --font-display: var(--font-bricolage);
+  --font-serif: var(--font-playfair);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -802,3 +803,23 @@
   padding: 0;
 }
 
+
+/* ---- PromptsAI: cursor del especimen del heroe ---------------------------
+   Parpadea como el caret de una terminal. Es el unico movimiento continuo de
+   la pagina, y se anula por completo si el sistema pide menos animacion. */
+@keyframes specimen-caret-blink {
+  0%, 45%   { opacity: 1; }
+  50%, 95%  { opacity: 0.14; }
+  100%      { opacity: 1; }
+}
+
+.specimen-caret {
+  animation: specimen-caret-blink 1.15s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .specimen-caret {
+    animation: none;
+    opacity: 1;
+  }
+}
