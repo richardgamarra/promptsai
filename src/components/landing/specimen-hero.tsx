@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { db } from "@/lib/db";
 
 /**
@@ -111,7 +112,19 @@ export async function SpecimenHero({
                 <span>{countWords(prompt.content).toLocaleString("en-US")} words</span>
               </figcaption>
 
-              <h2 className="mt-5 font-display text-2xl font-bold leading-tight tracking-[-0.02em] text-[#EDEFEE] sm:text-3xl">
+              {/* Firma de Infoplay sobre el especimen. El PNG lleva el fondo
+                  azul del original recortado por luminancia, asi que apoya
+                  sobre el panel sin dejar rectangulo. */}
+              <Image
+                src="/infoplay-technologies.png"
+                alt="Infoplay Technologies"
+                width={900}
+                height={243}
+                priority
+                className="mt-6 h-auto w-[180px] sm:w-[200px]"
+              />
+
+              <h2 className="mt-4 font-display text-2xl font-bold leading-tight tracking-[-0.02em] text-[#EDEFEE] sm:text-3xl">
                 {prompt.title}
                 <span aria-hidden="true" className="specimen-caret ms-2 inline-block h-[0.72em] w-[0.5em] translate-y-[0.06em] rounded-[3px] bg-[#22d3ee] align-baseline" />
               </h2>
