@@ -1,20 +1,16 @@
 import { defineConfig } from "@/lib/config";
 
 // Set to true to use clone branding (hide prompts.chat repo branding)
-const useCloneBranding = false;
+const useCloneBranding = true;
 
 export default defineConfig({
   // Branding - customize for white-label
   branding: {
-    name: "prompts.chat",
+    name: "PromptsAI",
     logo: "/logo.svg",
     logoDark: "/logo-dark.svg",
     favicon: "/logo.svg",
-    description: "Collect, organize, and share AI prompts",
-
-    // Delete this if useCloneBranding is true
-    appStoreUrl: "https://apps.apple.com/tr/app/prompts-chat/id6756895736",
-    chromeExtensionUrl: "https://chromewebstore.google.com/detail/promptschat/eemdohkhbaifiocagjlhibfbhamlbeej",
+    description: "A curated library of AI prompts you can copy, adapt and put to work today.",
   },
 
   // Theme - design system configuration
@@ -27,7 +23,7 @@ export default defineConfig({
     density: "default",
     // Colors (hex or oklch)
     colors: {
-      primary: "#6366f1", // Indigo
+      primary: "#22d3ee", // Cian de Infoplay
     },
   },
 
@@ -75,18 +71,9 @@ export default defineConfig({
     },
     sponsors: {
       enabled: !useCloneBranding,
-      items: [
-        // Add sponsors here
-        { name: "Neon", className: 'py-1', logo: '/sponsors/neon.svg', darkLogo: '/sponsors/neon-dark.svg', url: "https://get.neon.com/VqfnMo4" },
-        { name: "Clemta", logo: '/sponsors/clemta.webp', url: "https://clemta.com/?utm_source=prompts.chat" },
-        { name: "Wiro.ai", className: 'py-1', darkLogo: '/sponsors/wiro.png', logo: '/sponsors/wiro.png', url: "https://wiro.ai/?utm_source=prompts.chat" },
-        { name: "Cognition", logo: "/sponsors/cognition.svg", url: "https://wind.surf/prompts-chat" },
-        { name: "CodeRabbit", className: 'py-1', logo: '/sponsors/coderabbit.svg', darkLogo: '/sponsors/coderabbit-dark.svg', url: "https://coderabbit.link/fatih" },
-        { name: "Sentry", className: 'py-1', logo: '/sponsors/sentry.svg', darkLogo: '/sponsors/sentry-dark.svg', url: "https://sentry.io/?utm_source=prompts.chat" },
-
-        { name: "eachlabs", className: 'py-[6px]', logo: '/sponsors/eachlabs.png', darkLogo: '/sponsors/eachlabs-dark.png', url: "https://www.eachlabs.ai/?utm_source=promptschat&utm_medium=referral" },
-        { name: "CommandCode", className: 'py-1', logo: '/sponsors/commandcode.svg', darkLogo: '/sponsors/commandcode-dark.svg', url: "https://commandcode.ai/?utm_source=prompts.chat" },
-      ],
+      // Vaciado a proposito: los patrocinadores de arriba eran los del
+      // proyecto original y sus enlaces llevaban utm_source=prompts.chat.
+      items: [],
     },
   },
 });

@@ -38,14 +38,17 @@ const playfairDisplay = Playfair_Display({
   style: ["normal", "italic"],
 });
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const { branding } = await getConfig();
+  const { name, description } = branding;
+
+  return {
   metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:3000"),
   title: {
-    default: "prompts.chat - AI Prompts Community",
-    template: "%s | prompts.chat",
+    default: name,
+    template: `%s | ${name}`,
   },
-  description:
-    "Discover, collect, and share the best AI prompts for ChatGPT, Claude, Gemini, and more. Join the largest community of AI prompt engineers and creators.",
+  description,
   keywords: [
     "AI prompts",
     "ChatGPT prompts",
@@ -57,9 +60,9 @@ export const metadata: Metadata = {
     "AI assistant",
     "prompt templates",
   ],
-  authors: [{ name: "prompts.chat community" }],
-  creator: "prompts.chat",
-  publisher: "prompts.chat",
+  authors: [{ name }],
+  creator: name,
+  publisher: name,
   icons: {
     icon: [
       { url: "/favicon/favicon.svg", type: "image/svg+xml" },
@@ -71,31 +74,28 @@ export const metadata: Metadata = {
   },
   manifest: "/favicon/site.webmanifest",
   other: {
-    "apple-mobile-web-app-title": "prompts.chat",
+    "apple-mobile-web-app-title": name,
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "prompts.chat",
-    title: "prompts.chat - AI Prompts Community",
-    description:
-      "Discover, collect, and share the best AI prompts for ChatGPT, Claude, Gemini, and more. Join the largest community of AI prompt engineers.",
+    siteName: name,
+    title: name,
+    description,
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "prompts.chat - AI Prompts Community",
+        alt: name,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "prompts.chat - AI Prompts Community",
-    description:
-      "Discover, collect, and share the best AI prompts for ChatGPT, Claude, Gemini, and more.",
+    title: name,
+    description,
     images: ["/og.png"],
-    creator: "@promptschat",
   },
   robots: {
     index: true,
@@ -111,7 +111,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: process.env.NEXTAUTH_URL || "https://prompts.chat",
   },
-};
+  };
+}
 
 const radiusValues = {
   none: "0",
