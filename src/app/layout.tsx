@@ -98,20 +98,14 @@ export async function generateMetadata(): Promise<Metadata> {
     siteName: name,
     title: name,
     description,
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: name,
-      },
-    ],
+    // Sin "images" a proposito: la tarjeta la genera src/app/opengraph-image.tsx,
+    // que Next usa por convencion de archivo. Declararla aqui ademas obligaria
+    // a mantener dos sitios sincronizados.
   },
   twitter: {
     card: "summary_large_image",
     title: name,
     description,
-    images: ["/og.png"],
   },
   robots: {
     index: true,
