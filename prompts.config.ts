@@ -31,9 +31,13 @@ export default defineConfig({
   auth: {
     // Available: "credentials" | "google" | "azure" | "github" | "apple" | "oidc" | "oauth" | custom
     // Use `providers` array to enable multiple auth providers
-    providers: ["github", "google", "apple"],
-    // Allow public registration (only applies to credentials provider)
-    allowRegistration: false,
+    // Email y contrasena. Coincide con lo que hay en produccion (PCHAT_AUTH_PROVIDERS):
+    // antes el archivo decia github/google/apple y solo funcionaba porque la
+    // variable de entorno lo corregia. Si esa variable faltara, el login
+    // mostraria tres botones inservibles.
+    providers: ["credentials"],
+    // Registrarse ES la captura de lead de este sitio, asi que abierto.
+    allowRegistration: true,
   },
 
   // Internationalization

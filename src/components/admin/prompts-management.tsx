@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Upload, Trash2, Loader2, CheckCircle, AlertCircle, Sparkles, Download, RefreshCw, Link2, Search, ExternalLink, Eye, EyeOff, Star, Flag, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Upload, Trash2, Loader2, CheckCircle, AlertCircle, Sparkles, Download, RefreshCw, Link2, Search, ExternalLink, Eye, EyeOff, Star, Flag, ChevronLeft, ChevronRight, Filter, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -111,6 +111,9 @@ export function PromptsManagement({ aiSearchEnabled, promptsWithoutEmbeddings, t
   const [embeddingResult, setEmbeddingResult] = useState<{ success: number; failed: number } | null>(null);
   const [embeddingProgress, setEmbeddingProgress] = useState<ProgressState | null>(null);
   const [slugResult, setSlugResult] = useState<{ success: number; failed: number } | null>(null);
+  // Limpieza de las cuentas que crea el importador
+  const [importedUsers, setImportedUsers] = useState<number | null>(null);
+  const [cleaning, setCleaning] = useState(false);
   const [slugProgress, setSlugProgress] = useState<ProgressState | null>(null);
   const [generatingRelated, setGeneratingRelated] = useState(false);
   const [relatedResult, setRelatedResult] = useState<{ success: number; failed: number } | null>(null);
@@ -417,6 +420,49 @@ export function PromptsManagement({ aiSearchEnabled, promptsWithoutEmbeddings, t
     }
   };
 
+  // Cuantas cuentas ha dejado el importador pendientes de limpiar
+  useEffect(() => {
+    fetch("/api/admin/cleanup-import")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setImportedUsers(d.pending))
+      .catch(() => {});
+  }, []);
+
+  /**
+   * Borra las cuentas creadas por el importador, transfiriendo antes su
+   * contenido. El importador publica como nombre de usuario el autor del
+   * conjunto de datos, y muchas veces eso es el correo real de una persona.
+   */
+  const handleCleanImported = async () => {
+    if (!importedUsers) return;
+    if (
+      !confirm(
+        `Se borraran ${importedUsers} cuentas creadas por el importador.\n\n` +
+          `Sus prompts NO se borran: pasan a firmarse como @library.\n\n` +
+          `Continuar?`
+      )
+    ) {
+      return;
+    }
+
+    setCleaning(true);
+    try {
+      const res = await fetch("/api/admin/cleanup-import", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to clean");
+
+      toast.success(
+        `${data.users} cuentas borradas. ${data.prompts} prompts conservados y transferidos a @library.`
+      );
+      setImportedUsers(0);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to clean");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center justify-between mb-4">
@@ -565,6 +611,37 @@ export function PromptsManagement({ aiSearchEnabled, promptsWithoutEmbeddings, t
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+
+        {/* Limpieza de cuentas importadas */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-3 border-t">
+          <span className="text-sm text-muted-foreground flex-1">
+            Clean imported list{" "}
+            <span className="tabular-nums">
+              ({importedUsers ?? 0} {t("prompts.pending")})
+            </span>
+            {importedUsers ? (
+              <span className="block text-xs text-amber-600 dark:text-amber-500">
+                Hay cuentas importadas publicando correos reales como nombre de usuario
+              </span>
+            ) : null}
+          </span>
+          <Button
+            size="sm"
+            variant={importedUsers ? "default" : "outline"}
+            onClick={handleCleanImported}
+            disabled={loading || deleting || generating || generatingSlugs || cleaning || !importedUsers}
+            className="flex-1 sm:flex-none"
+          >
+            {cleaning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <UserX className="h-4 w-4 mr-2" />
+                Clean imported
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Slug Progress bar */}
