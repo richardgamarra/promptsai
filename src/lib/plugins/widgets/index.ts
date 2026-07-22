@@ -1,17 +1,19 @@
 import type { WidgetPlugin, WidgetPrompt, WidgetContext, InjectedWidget } from "./types";
-import { coderabbitWidget } from "./coderabbit";
-import { bookWidget } from "./book";
-import { textreamWidget } from "./textream";
-import { commandcodeWidget } from "./commandcode";
+import { infoplayWidget } from "./infoplay";
 
 export * from "./types";
 
-// Registry of all widget plugins
+// Registro de tarjetas promocionales que se insertan en el listado de prompts.
+//
+// El proyecto original registraba aqui cuatro anuncios propios: coderabbit,
+// el libro del autor, textream y commandcode. Se retiraron: este sitio es de
+// Infoplay y el espacio publicitario tambien.
+//
+// Los archivos de esos anuncios siguen en esta carpeta como referencia de como
+// se construye una tarjeta, pero al no estar en este array no se renderizan.
+// Para dejar el listado sin ninguna promocion, vaciar el array.
 const widgetPlugins: WidgetPlugin[] = [
-  coderabbitWidget,
-  bookWidget,
-  textreamWidget,
-  commandcodeWidget,
+  infoplayWidget,
 ];
 
 /**
