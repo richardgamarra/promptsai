@@ -328,27 +328,50 @@ export function Header({ authProvider = "credentials", allowRegistration = true 
             </ContextMenuContent>
           </ContextMenu>
         ) : (
-          <Link href="/" className="flex gap-2">
-            {branding.logo && (
-              <>
-                <Image
-                  src={branding.logo}
-                  alt={branding.name}
-                  width={20}
-                  height={20}
-                  className="h-5 w-5 dark:hidden"
-                />
-                <Image
-                  src={branding.logoDark || branding.logo}
-                  alt={branding.name}
-                  width={20}
-                  height={20}
-                  className="h-5 w-5 hidden dark:block"
-                />
-              </>
-            )}
-            <span className="font-semibold leading-none mt-[2px]">{branding.name}</span>
-          </Link>
+          <div className="flex items-center gap-2.5">
+            {/* Firma de la casa. Se usa la version con su placa azul y no la
+                recortada, porque el logo es plata y oro: sobre la cabecera
+                blanca del tema claro, el circuito plateado desapareceria. */}
+            <a
+              href="https://infoplay.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:block shrink-0 rounded-[3px] transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <Image
+                src="/infoplay-technologies-plate.png"
+                alt="Infoplay Technologies"
+                width={640}
+                height={183}
+                priority
+                sizes="100px"
+                className="h-6 w-auto rounded-[3px]"
+              />
+            </a>
+            <span aria-hidden="true" className="hidden sm:block h-5 w-px bg-border" />
+
+            <Link href="/" className="flex gap-2">
+              {branding.logo && (
+                <>
+                  <Image
+                    src={branding.logo}
+                    alt={branding.name}
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 dark:hidden"
+                  />
+                  <Image
+                    src={branding.logoDark || branding.logo}
+                    alt={branding.name}
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 hidden dark:block"
+                  />
+                </>
+              )}
+              <span className="font-semibold leading-none mt-[2px]">{branding.name}</span>
+            </Link>
+          </div>
         )}
 
         {/* Desktop nav */}
