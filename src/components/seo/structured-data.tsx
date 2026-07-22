@@ -168,7 +168,8 @@ export async function StructuredData({ type, data }: StructuredDataProps) {
         "Version history",
         "Categories and tags",
       ],
-      screenshot: `${baseUrl}/og.png`,
+      // /og.png ya no existe: la tarjeta la genera src/app/opengraph-image.tsx
+      screenshot: `${baseUrl}/opengraph-image`,
     },
     itemList: data?.items
       ? {
