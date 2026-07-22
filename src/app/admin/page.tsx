@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FolderTree, Tags, FileText } from "lucide-react";
 import { AdminTabs } from "@/components/admin/admin-tabs";
+import { AdsTable } from "@/components/admin/ads-table";
 import { UsersTable } from "@/components/admin/users-table";
 import { CategoriesTable } from "@/components/admin/categories-table";
 import { TagsTable } from "@/components/admin/tags-table";
@@ -203,6 +204,7 @@ export default async function AdminPage() {
             />
           ),
           reports: <ReportsTable reports={reports} />,
+          ads: <AdsTable />,
         }}
       />
     </div>

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, FolderTree, Tags, FileText, Webhook, Flag } from "lucide-react";
+import { Users, FolderTree, Tags, FileText, Webhook, Flag, Megaphone } from "lucide-react";
 
-const VALID_TABS = ["users", "categories", "tags", "webhooks", "prompts", "reports"] as const;
+const VALID_TABS = ["users", "categories", "tags", "webhooks", "prompts", "reports", "ads"] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 interface AdminTabsProps {
@@ -24,6 +24,7 @@ interface AdminTabsProps {
     webhooks: React.ReactNode;
     prompts: React.ReactNode;
     reports: React.ReactNode;
+    ads: React.ReactNode;
   };
 }
 
@@ -89,6 +90,10 @@ export function AdminTabs({ translations, pendingReportsCount, children }: Admin
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1.5 sm:gap-2 px-2.5 sm:px-3">
+            <Megaphone className="h-4 w-4" />
+            <span className="hidden sm:inline">Anuncios</span>
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -98,6 +103,7 @@ export function AdminTabs({ translations, pendingReportsCount, children }: Admin
       <TabsContent value="webhooks">{children.webhooks}</TabsContent>
       <TabsContent value="prompts">{children.prompts}</TabsContent>
       <TabsContent value="reports">{children.reports}</TabsContent>
+      <TabsContent value="ads">{children.ads}</TabsContent>
     </Tabs>
   );
 }

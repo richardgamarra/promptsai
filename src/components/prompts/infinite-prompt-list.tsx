@@ -11,6 +11,8 @@ import { useFilterContext } from "./filter-context";
 import { PromptCard, type PromptCardProps } from "./prompt-card";
 import { WidgetCard } from "./widget-card";
 import { injectWidgets, isWidget } from "@/lib/plugins/widgets";
+import { injectAds, isAd } from "@/lib/ads";
+import { AdCard, type AdData } from "@/components/prompts/ad-card";
 
 interface InfinitePromptListProps {
   initialPrompts: PromptCardProps["prompt"][];
@@ -61,12 +63,28 @@ export function InfinitePromptList({
   const [hasMore, setHasMore] = useState(initialPrompts.length < initialTotal);
   const [hasError, setHasError] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [ads, setAds] = useState<AdData[]>([]);
   const loaderRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Set mounted state after hydration
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // Anuncios gestionados desde el panel de admin. Si la peticion falla, el
+  // listado se queda sin anuncios pero sigue funcionando.
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/ads")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!cancelado && Array.isArray(data)) setAds(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   // Reset when new data arrives from server
@@ -194,13 +212,21 @@ export function InfinitePromptList({
 
   // Inject widgets into the prompt list (widgets decide their own injection logic)
   // Only inject after mount to prevent hydration mismatch
-  const itemsToRender = isMounted ? injectWidgets(prompts, { filters }) : prompts;
+  const withWidgets = isMounted ? injectWidgets(prompts, { filters }) : prompts;
+  // Los anuncios solo entran en el listado general: si alguien esta buscando o
+  // filtrando por algo concreto, no se le interrumpe.
+  const sinFiltros = !filters.q && !filters.category && !filters.tag;
+  const itemsToRender = isMounted
+    ? injectAds(withWidgets, sinFiltros ? ads : [])
+    : withWidgets;
 
   return (
     <div className="space-y-4">
       <Masonry columnCount={{ default: 1, md: 2, lg: 2, xl: 3 }} gap={16}>
-        {itemsToRender.map((item) => 
-          isWidget(item) ? (
+        {itemsToRender.map((item) =>
+          isAd(item) ? (
+            <AdCard key={item.key} ad={item} />
+          ) : isWidget(item) ? (
             <WidgetCard key={item.id} prompt={item} />
           ) : (
             <PromptCard key={item.id} prompt={item} />

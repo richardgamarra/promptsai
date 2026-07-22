@@ -1,20 +1,19 @@
 import type { WidgetPlugin, WidgetPrompt, WidgetContext, InjectedWidget } from "./types";
-import { infoplayWidget } from "./infoplay";
 
 export * from "./types";
 
-// Registro de tarjetas promocionales que se insertan en el listado de prompts.
+// Registro VACIO a proposito.
 //
-// El proyecto original registraba aqui cuatro anuncios propios: coderabbit,
-// el libro del autor, textream y commandcode. Se retiraron: este sitio es de
-// Infoplay y el espacio publicitario tambien.
+// El proyecto original registraba aqui cuatro anuncios suyos (coderabbit, su
+// libro, textream y commandcode), escritos a mano en codigo. Ahora los anuncios
+// se gestionan desde el panel de admin y viven en la tabla `ads`: se crean, se
+// programan y se miden sin desplegar. Ver src/lib/ads.ts y
+// src/components/prompts/ad-card.tsx.
 //
-// Los archivos de esos anuncios siguen en esta carpeta como referencia de como
-// se construye una tarjeta, pero al no estar en este array no se renderizan.
-// Para dejar el listado sin ninguna promocion, vaciar el array.
-const widgetPlugins: WidgetPlugin[] = [
-  infoplayWidget,
-];
+// Esta maquinaria se conserva porque sigue soportando widgets con logica propia
+// en React, algo que una fila de base de datos no puede expresar. Si alguna vez
+// hace falta uno, se registra aqui.
+const widgetPlugins: WidgetPlugin[] = [];
 
 /**
  * Get all registered widget plugins
