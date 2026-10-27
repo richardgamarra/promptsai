@@ -63,6 +63,9 @@ RUN groupadd --system --gid 1001 nodejs && \
 
 # Copy standalone build output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Standalone tracing keeps sharp's .node binding but drops libvips-cpp.so, so sharp
+# fails to load and images are served unoptimized. Ship the platform packages whole.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
